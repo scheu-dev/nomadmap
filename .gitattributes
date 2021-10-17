@@ -1,0 +1,4 @@
+static/IMG_0491_200_200.jpg filter=lfs diff=lfs merge=lfs -text
+static/img_raw filter=lfs diff=lfs merge=lfs -text
+static/img_resized filter=lfs diff=lfs merge=lfs -text
+static/IMG_0491.jpg filter=lfs diff=lfs merge=lfs -text
