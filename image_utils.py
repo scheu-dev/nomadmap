@@ -1,6 +1,9 @@
 from exif import Image as EXIFImage
 from PIL import Image as PILImage
 import io
+from datetime import datetime
+from streamlit.uploaded_file_manager import UploadedFile
+from pathlib import Path
 
 def resize_image(img: PILImage, basewidth: int=250, target_path: str='img_resized'):
     wpercent = (basewidth/float(img.size[0]))
@@ -16,10 +19,17 @@ def image_to_byte_array(image:PILImage, _format):
 
 def extract_meta(image_file):
     img = EXIFImage(image_file)
+    date, time = image_datetime(img).split(' ')
+    date_time = datetime(*([int(s) for s in date.split(':')] + [int(s) for s in time.split(':')]))
+
+    coords = image_coordinates(img)
+    coords = str(coords[0]) + ', ' + str(coords[1])
+
     meta = {
-        'date_time': image_datetime(img),
-        'coordinates': image_coordinates(img)
+        'date_time': date_time,
+        'coordinates': coords
     }
+
     return meta
 
 def decimal_coords(coords, ref):
@@ -50,3 +60,10 @@ def image_datetime(img):
     else:
         print('The Image has no EXIF information')
     return dt
+
+def save_image(image_file: UploadedFile, target_dir: Path):
+    print(type(image_file))
+    bytes_data = image_file.getvalue()
+    with open(target_dir/image_file.name, 'wb') as f:
+        f.write(bytes_data)
+    print(f'image {image_file.name} saved')

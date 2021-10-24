@@ -1,11 +1,16 @@
-import streamlit as st
-import folium
 from pathlib import Path
-import base64
-from folium import plugins
+from datetime import datetime
+
+import streamlit as st
 from streamlit_folium import folium_static
-from PIL import Image
+from pydantic.error_wrappers import ValidationError
+
+from data_models import Step
 from map import create_marker, build_map
+from image_utils import extract_meta, save_image
+
+
+_IMG_SRC = Path('static/img_raw')
 
 image_metas = [{'name': 'IMG_20211010_073341857.jpg',
   'file_path': Path('static/img_raw/IMG_20211010_073341857.jpg'),
@@ -50,19 +55,45 @@ st.title('Nomad Tracks')
 markers = [create_marker(image_meta) for image_meta in sorted_image_metas]
 m = build_map(markers)
 folium_static(m, width=m.width[0], height=m.height[0])
-st.sidebar.title('Add Step')
-st.sidebar.text_input('Title')
-st.sidebar.text_input('Longitude, Latitude (e.g.: "52.5207, 13.3751"')
-st.sidebar.date_input('Date')
 
-st.sidebar.text_area("Comment")
-# st.sidebar.multiselect("Tags")
+st.sidebar.title('Add Step')
+
+for var_name in ['step_title', 'step_coords', 'step_date', 'step_desc']:
+    if var_name not in st.session_state:
+        st.session_state[var_name] = '' if var_name != 'step_date' else None
 
 image_file = st.sidebar.file_uploader("Upload Image", type=['png', 'jpeg', 'jpg'])
 if image_file is not None:
-    import exif
+    meta = extract_meta(image_file)
+    st.session_state.step_coords = meta['coordinates']
+    st.session_state.step_date = meta['date_time']
 
-    img = exif.Image(image_file)
-    st.sidebar.write(img.datetime)
-    st.sidebar.write(img.gps_latitude)
-    st.sidebar.write(img.gps_longitude)
+
+st.session_state.step_title = st.sidebar.text_input('Title', st.session_state.step_title)
+st.session_state.step_coords = st.sidebar.text_input('Longitude, Latitude (e.g.: "52.5207, 13.3751"',
+                                                     st.session_state.step_coords)
+st.session_state.step_date = st.sidebar.date_input('Date', st.session_state.step_date)
+st.session_state.step_desc = st.sidebar.text_area("Comment", st.session_state.step_desc)
+
+
+def save_step(title, coordinates, date_time, desc):
+    # Mock function write to DB instead
+    long, lat = coordinates.split(', ')
+    step = Step(title=title, long=long, lat=lat, date_time=datetime.combine(date_time, datetime.min.time()),
+                description=desc)
+    print(step.dict())
+
+
+if st.sidebar.button("Save Step"):
+    try:
+        save_image(image_file, _IMG_SRC)
+
+        save_step(st.session_state.step_title,
+                  st.session_state.step_coords,
+                  st.session_state.step_date,
+                  st.session_state.step_desc)
+        st.write('Success')
+    except (ValidationError, ValueError) as e:
+        print(repr(e))
+        st.sidebar.warning("Please Enter Coordinates!")
+
